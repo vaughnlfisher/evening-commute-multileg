@@ -1,0 +1,13 @@
+{
+  "domain": "evening_commute_multileg",
+  "name": "Evening Commute Multileg",
+  "version": "1.0.0",
+  "description": "Return commute: CTK→Farringdon (Thameslink) → Farringdon→Paddington (Elizabeth) → Paddington→Twyford (GWR/Elizabeth), anchored nested connections.",
+  "documentation": "https://github.com/vaughnlfisher/evening-commute-multileg",
+  "issue_tracker": "https://github.com/vaughnlfisher/evening-commute-multileg/issues",
+  "dependencies": [],
+  "codeowners": ["@vaughnlfisher"],
+  "requirements": [],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}
