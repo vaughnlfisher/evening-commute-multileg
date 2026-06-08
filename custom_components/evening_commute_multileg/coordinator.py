@@ -148,9 +148,7 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
         self.update_interval = _get_scan_interval()
         try:
             now = datetime.now().astimezone()
-            # Don't show anything before EARLIEST_HOUR today
-            floor = now.replace(hour=EARLIEST_HOUR, minute=0, second=0, microsecond=0)
-            base = now if now >= floor else floor
+            base = now
 
             leg1_services = await self._fetch_leg(LEG1_FROM, LEG1_TO)
             leg2_services = await self._fetch_leg(LEG2_FROM, LEG2_TO)
