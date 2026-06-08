@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.1.0
+// Evening Commute Multileg Card v1.2.0
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.1.0';
+const VER = '1.2.0';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -16,6 +16,18 @@ function carrierColor(opCode, operator) {
   if (c === 'XR' || (operator || '').toLowerCase().includes('elizabeth')) return '#9364CC';
   if (c === 'GW' || (operator || '').toLowerCase().includes('great western')) return '#0A493E';
   return '#666';
+}
+function pctColor(p) {
+  if (p === null || p === undefined) return '#555';
+  if (p >= 98) return '#2e7d32';
+  if (p >= 95) return '#4caf50';
+  if (p >= 90) return '#ff9800';
+  if (p >= 80) return '#f44336';
+  return '#b71c1c';
+}
+function dayAbbr(dateStr) {
+  try { return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short' }); }
+  catch { return ''; }
 }
 
 function statusColor(status, delay) {
@@ -40,6 +52,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._collapsed = {};  // train index -> bool
+    this._histOpen = false;
   }
   static getStubConfig() {
     return { entity: 'sensor.evening_commute_summary', title: 'Evening Commute' };
@@ -97,6 +110,22 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .none{padding:6px 16px;font-size:.76em;color:var(--secondary-text-color);font-style:italic}
       .footer{padding:5px 16px;font-size:.74em;color:var(--secondary-text-color);border-top:1px solid var(--divider-color,rgba(0,0,0,.08));display:flex;justify-content:space-between}
       .no-trains{padding:18px 16px;text-align:center;color:var(--secondary-text-color)}
+      .hist-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;border-top:1px solid var(--divider-color,rgba(0,0,0,.08));background:var(--secondary-background-color,#f5f5f5);user-select:none}
+      .hist-toggle:hover{background:var(--secondary-background-color,rgba(0,0,0,.06))}
+      .hist-toggle-lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--secondary-text-color)}
+      .hist-toggle-icon{font-size:14px;color:var(--secondary-text-color);transition:transform .2s}
+      .hist-toggle-icon.open{transform:rotate(180deg)}
+      .hist-section{padding:10px 16px 12px;border-top:1px solid var(--divider-color,rgba(0,0,0,.06))}
+      .hist-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+      .hist-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px}
+      .hist-stat{text-align:center;background:var(--secondary-background-color,rgba(0,0,0,.04));border-radius:6px;padding:6px 4px}
+      .hist-stat-val{font-size:1.1em;font-weight:700}
+      .hist-stat-lbl{font-size:.7em;color:var(--secondary-text-color);margin-top:1px}
+      .hist-days{display:flex;gap:3px;margin-bottom:4px}
+      .hist-day{flex:1;text-align:center;border-radius:4px;padding:3px 2px;min-width:0}
+      .hist-day-lbl{font-size:.62em;font-weight:600}
+      .hist-day-pct{font-size:.66em;font-weight:700;margin-top:1px}
+      .hist-divider{border:none;border-top:1px solid var(--divider-color,rgba(0,0,0,.08));margin:9px 0 7px}
     `;
   }
 
@@ -121,6 +150,34 @@ class EveningCommuteMultilegCard extends HTMLElement {
       </div>
       <div class="sub">Towards ${item.destination}</div>
     </div>`;
+  }
+
+  _histSection(h, pillClass, color) {
+    if (!h || h.on_time_pct_7day === null || h.on_time_pct_7day === undefined) {
+      return `<div class="hist-section"><div class="hist-title" style="color:${color}">${h?.label || ''}</div><div style="font-size:.76em;color:var(--secondary-text-color);font-style:italic">No data available</div></div>`;
+    }
+    const fmt = v => (v !== null && v !== undefined) ? `${parseFloat(v).toFixed(1)}%` : 'N/A';
+    const days = (h.daily_breakdown || []).filter(d => d.on_time_pct !== null).slice(-7);
+    const daysHtml = days.map(d => {
+      const bg = pctColor(d.on_time_pct);
+      return `<div class="hist-day" style="background:${bg}20;border:1px solid ${bg}60"><div class="hist-day-lbl" style="color:${bg}">${dayAbbr(d.date)}</div><div class="hist-day-pct" style="color:${bg}">${d.on_time_pct.toFixed(0)}%</div></div>`;
+    }).join('');
+    return `<div class="hist-section">
+      <div class="hist-title" style="color:${color}">${h.label || ''}</div>
+      <div class="hist-stats">
+        <div class="hist-stat"><div class="hist-stat-val" style="color:${pctColor(h.on_time_pct_today)}">${fmt(h.on_time_pct_today)}</div><div class="hist-stat-lbl">Today</div></div>
+        <div class="hist-stat"><div class="hist-stat-val" style="color:${pctColor(h.on_time_pct_7day)}">${fmt(h.on_time_pct_7day)}</div><div class="hist-stat-lbl">7-day</div></div>
+        <div class="hist-stat"><div class="hist-stat-val" style="color:${pctColor(h.on_time_pct_30day)}">${fmt(h.on_time_pct_30day)}</div><div class="hist-stat-lbl">30-day</div></div>
+      </div>
+      ${daysHtml ? `<div class="hist-days">${daysHtml}</div>` : ''}
+    </div>`;
+  }
+
+  _histPanel(history) {
+    const l1 = this._histSection(history.leg1, 'p1', '#E1251B');
+    const l2 = this._histSection(history.leg2, 'p2', '#9364CC');
+    const l3 = this._histSection(history.leg3, 'p3', '#0A493E');
+    return `${l1}<hr class="hist-divider">${l2}<hr class="hist-divider">${l3}`;
   }
 
   _render() {
@@ -179,11 +236,17 @@ class EveningCommuteMultilegCard extends HTMLElement {
       }).join('');
     }
 
+    const history = (s && s.history) ? s.history : null;
+    const hasHist = history && (history.leg1 || history.leg2 || history.leg3);
+    const histHtml = hasHist
+      ? `<div class="hist-toggle" id="hist-toggle"><span class="hist-toggle-lbl">\ud83d\udcca Reliability History</span><span class="hist-toggle-icon${this._histOpen ? ' open' : ''}">\u25bc</span></div>${this._histOpen ? this._histPanel(history) : ''}`
+      : '';
+
     const footer = cfg.show_last_updated && lastUpdated
       ? `<div class="footer"><span>Last updated: ${lastUpdated}</span><span>\ud83c\udf19</span></div>`
       : '';
 
-    this.shadowRoot.innerHTML = `<style>${this._styles()}</style><ha-card>${hdr}${blocks}${footer}</ha-card>`;
+    this.shadowRoot.innerHTML = `<style>${this._styles()}</style><ha-card>${hdr}${blocks}${histHtml}${footer}</ha-card>`;
     this.shadowRoot.querySelectorAll('.leg1-toggle').forEach(el => {
       el.addEventListener('click', () => {
         const i = parseInt(el.getAttribute('data-idx'), 10);
@@ -191,6 +254,8 @@ class EveningCommuteMultilegCard extends HTMLElement {
         this._render();
       });
     });
+    const ht = this.shadowRoot.getElementById('hist-toggle');
+    if (ht) ht.addEventListener('click', () => { this._histOpen = !this._histOpen; this._render(); });
   }
 }
 

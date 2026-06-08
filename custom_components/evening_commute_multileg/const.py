@@ -51,3 +51,16 @@ TWYFORD_TERMINI = {
     "penzance", "westbury", "frome", "weston-super-mare",
     "hereford", "gloucester", "carmarthen", "swansea",
 }
+
+# HSP (Historic Service Performance) — reliability history
+HSP_URL = "https://hsp-prod.rockshore.net/api/v1/serviceMetrics"
+HSP_USERNAME = "YOUR_NRE_USERNAME"
+HSP_PASSWORD = "YOUR_NRE_PASSWORD"
+# Per-leg HSP routes for the evening return (16:00-20:00 weekday window)
+HSP_LEGS = [
+    {"key": "leg1", "from": "CTK", "to": "ZFD", "label": "City Thameslink \u2192 Farringdon"},
+    {"key": "leg2", "from": "ZFD", "to": "PAD", "label": "Farringdon \u2192 Paddington"},
+    {"key": "leg3", "from": "PAD", "to": "TWY", "label": "Paddington \u2192 Twyford"},
+]
+HSP_FROM_TIME = "1600"
+HSP_TO_TIME   = "2000"

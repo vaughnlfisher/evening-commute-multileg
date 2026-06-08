@@ -1,6 +1,7 @@
 """Coordinator for Evening Commute Multileg."""
 from __future__ import annotations
 
+import base64
 import logging
 from datetime import datetime, timedelta
 
@@ -23,9 +24,12 @@ from .const import (
     SCAN_INTERVAL_PEAK, SCAN_INTERVAL_OFFPEAK, SCAN_INTERVAL_NIGHT,
     HUXLEY_ROWS,
     NORTHBOUND_TERMINI, TWYFORD_TERMINI,
+    HSP_URL, HSP_USERNAME, HSP_PASSWORD, HSP_LEGS, HSP_FROM_TIME, HSP_TO_TIME,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+HSP_REFRESH = timedelta(hours=1)
 
 HUXLEY_DEP = (
     "https://huxley2.azurewebsites.net/departures/{frm}/to/{to}/{rows}"
@@ -143,6 +147,141 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=_get_scan_interval())
         self.entry = entry
+        self._history: dict = {}          # {leg_key: result dict}
+        self._history_last_fetch: datetime | None = None
+
+    def schedule_hsp_fetch(self) -> None:
+        """Schedule HSP fetch for all 3 legs as a background task."""
+        _LOGGER.warning("HSP: scheduling evening background task")
+        self.hass.async_create_background_task(
+            self._async_hsp_fetch(),
+            name="evening_commute_multileg_hsp_fetch",
+        )
+
+    async def _async_hsp_fetch(self) -> None:
+        import asyncio as _aio
+        await _aio.sleep(30)
+        _LOGGER.warning("HSP: evening fetch starting")
+        try:
+            result = await self._fetch_all_history()
+            if result:
+                self._history = result
+                if self.data:
+                    self.data["history"] = result
+                    self.async_set_updated_data(self.data)
+                _LOGGER.warning("HSP evening: fetched %d legs", len(result))
+        except Exception as err:
+            _LOGGER.warning("HSP evening error: %s (%s)", type(err).__name__, err)
+
+    async def _fetch_all_history(self) -> dict:
+        now = datetime.now()
+        if (
+            self._history_last_fetch is not None
+            and (now - self._history_last_fetch) < HSP_REFRESH
+            and self._history
+        ):
+            return self._history
+
+        today = now.date()
+        from_date = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+        auth = base64.b64encode(f"{HSP_USERNAME}:{HSP_PASSWORD}".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}", "Content-Type": "application/json"}
+
+        out = {}
+        for leg in HSP_LEGS:
+            payload = {
+                "from_loc": leg["from"],
+                "to_loc": leg["to"],
+                "from_time": HSP_FROM_TIME,
+                "to_time": HSP_TO_TIME,
+                "from_date": from_date,
+                "to_date": to_date,
+                "days": "WEEKDAY",
+                "tolerance": [0, 5, 10, 15, 30],
+            }
+            try:
+                connector = aiohttp.TCPConnector(ssl=False)
+                async with aiohttp.ClientSession(connector=connector) as session:
+                    async with session.post(
+                        HSP_URL, json=payload, headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        if resp.status != 200:
+                            body = await resp.text()
+                            _LOGGER.warning("HSP %s HTTP %s: %s", leg["key"], resp.status, body[:200])
+                            continue
+                        data = await resp.json(content_type=None)
+                        services = data.get("Services", [])
+            except Exception as err:
+                _LOGGER.warning("HSP %s error: %s", leg["key"], err)
+                continue
+
+            parsed = self._parse_hsp(services, today)
+            if parsed:
+                parsed["label"] = leg["label"]
+                out[leg["key"]] = parsed
+                _LOGGER.warning("HSP %s: 7-day %.1f%%", leg["key"], parsed.get("on_time_pct_7day") or 0)
+
+        if out:
+            self._history = out
+            self._history_last_fetch = now
+        return out
+
+    @staticmethod
+    def _parse_hsp(all_services, today) -> dict | None:
+        by_date: dict = {}
+        for svc in all_services:
+            if not isinstance(svc, dict):
+                continue
+            sam = svc.get("serviceAttributesMetrics", {})
+            if not isinstance(sam, dict):
+                continue
+            rids = sam.get("rids", [])
+            if not rids:
+                continue
+            metrics = svc.get("Metrics", [])
+            pct_at_5 = None
+            for m in (metrics if isinstance(metrics, list) else []):
+                if isinstance(m, dict) and str(m.get("tolerance_value", "")) == "5":
+                    pct_at_5 = m.get("percent_tolerance")
+                    break
+            if pct_at_5 is None:
+                continue
+            for rid in rids:
+                raw = str(rid)[:8]
+                if raw.isdigit() and len(raw) == 8:
+                    ds = raw[:4] + "-" + raw[4:6] + "-" + raw[6:8]
+                    if ds not in by_date:
+                        by_date[ds] = {"pct_sum": 0.0, "pct_count": 0}
+                    by_date[ds]["pct_sum"] += float(pct_at_5)
+                    by_date[ds]["pct_count"] += 1
+        if not by_date:
+            return None
+        daily = []
+        for ds in sorted(by_date.keys())[-30:]:
+            d = by_date[ds]
+            pct = round(d["pct_sum"] / d["pct_count"], 2) if d["pct_count"] else None
+            daily.append({"date": ds, "on_time_pct": pct, "total_observations": d["pct_count"]})
+        dwd = [d for d in daily if d["on_time_pct"] is not None]
+        today_str = today.strftime("%Y-%m-%d")
+        last7 = [d for d in dwd if d["date"] >= (today - timedelta(days=7)).strftime("%Y-%m-%d")]
+
+        def avg(days):
+            v = [d["on_time_pct"] for d in days if d["on_time_pct"] is not None]
+            return round(sum(v) / len(v), 1) if v else None
+
+        td = next((d for d in daily if d["date"] == today_str), None)
+        best = max(dwd, key=lambda d: d["on_time_pct"] or 0) if dwd else None
+        worst = min(dwd, key=lambda d: d["on_time_pct"] if d["on_time_pct"] is not None else 100) if dwd else None
+        return {
+            "on_time_pct_today": td["on_time_pct"] if td else None,
+            "on_time_pct_7day": avg(last7),
+            "on_time_pct_30day": avg(dwd),
+            "daily_breakdown": daily,
+            "best_day": best,
+            "worst_day": worst,
+        }
 
     async def _fetch_leg(self, frm: str, to: str) -> list[dict]:
         url = HUXLEY_DEP.format(frm=frm, to=to, rows=HUXLEY_ROWS, token=DARWIN_TOKEN)
@@ -282,6 +421,7 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                     "trains": trains,
                     "last_updated": now.isoformat(),
                 },
+                "history": self._history,
             }
             for i, t in enumerate(trains, 1):
                 data[f"train_{i}"] = {
