@@ -29,8 +29,43 @@ _LOGGER = logging.getLogger(__name__)
 
 HUXLEY_DEP = (
     "https://huxley2.azurewebsites.net/departures/{frm}/to/{to}/{rows}"
-    "?accessToken={token}"
+    "?expand=true&accessToken={token}"
 )
+
+
+def _parse_hhmm_after(val, ref):
+    """Parse HH:MM into a datetime on/after ref (handles midnight rollover)."""
+    try:
+        h, m = map(int, val.split(":"))
+        dt = ref.replace(hour=h, minute=m, second=0, microsecond=0)
+        if (dt - ref).total_seconds() < -3600:
+            dt += timedelta(days=1)
+        return dt
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _arrival_at(svc, dest_names, dep_dt):
+    """Extract arrival datetime at the filtered destination from calling points.
+
+    Returns (arrival_dt, in_transit_mins) or (None, None) if unavailable.
+    """
+    scp = svc.get("subsequentCallingPoints")
+    if not scp or not isinstance(scp, list):
+        return None, None
+    pts = scp[0].get("callingPoint", []) if isinstance(scp[0], dict) else []
+    for p in pts:
+        name = (p.get("locationName") or "").lower()
+        if any(d in name for d in dest_names):
+            t = (p.get("et") or "").strip()
+            if t in ("", "On time", "Delayed", "Cancelled"):
+                t = (p.get("st") or "").strip()
+            arr_dt = _parse_hhmm_after(t, dep_dt)
+            if arr_dt:
+                transit = max(0, round((arr_dt - dep_dt).total_seconds() / 60))
+                return arr_dt, transit
+            break
+    return None, None
 
 
 def _get_scan_interval() -> timedelta:
@@ -124,7 +159,7 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
             return []
 
     def _upcoming(self, services, after_dt, termini=None):
-        """Sorted list of (dt, dest, status, delay, platform, svc) departing >= after_dt."""
+        """Sorted list of dicts departing >= after_dt."""
         out = []
         for svc in services:
             if termini and not _is_to(svc, termini):
@@ -140,6 +175,9 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                 "status": status,
                 "delay_minutes": delay,
                 "platform": svc.get("platform"),
+                "operator": svc.get("operator"),
+                "operator_code": svc.get("operatorCode"),
+                "_svc": svc,
             })
         out.sort(key=lambda x: x["dt"])
         return out
@@ -162,23 +200,37 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
 
             trains = []
             for l1 in leg1[:NUM_TRAINS]:
-                # Estimate Leg1 arrival at Farringdon: CTK->ZFD ~3 min
-                l1_arr = l1["dt"] + timedelta(minutes=3)
+                # Real Leg1 arrival at Farringdon from calling points
+                l1_arr, l1_transit = _arrival_at(l1["_svc"], ["farringdon"], l1["dt"])
+                if l1_arr is None:
+                    l1_arr = l1["dt"] + timedelta(minutes=3)
+                    l1_transit = 3
                 board2 = l1_arr + timedelta(minutes=FARRINGDON_INTERCHANGE_MINS)
 
                 leg2_opts = []
                 for l2 in self._upcoming(leg2_services, board2):
-                    # Estimate Leg2 arrival at Paddington: ZFD->PAD ~10 min
-                    l2_arr = l2["dt"] + timedelta(minutes=10)
+                    # Real Leg2 arrival at Paddington from calling points
+                    l2_arr, l2_transit = _arrival_at(l2["_svc"], ["paddington"], l2["dt"])
+                    if l2_arr is None:
+                        l2_arr = l2["dt"] + timedelta(minutes=10)
+                        l2_transit = 10
                     board3 = l2_arr + timedelta(minutes=PADDINGTON_INTERCHANGE_MINS)
                     leg3_opts = []
                     for l3 in self._upcoming(leg3_services, board3, TWYFORD_TERMINI):
+                        _, l3_transit = _arrival_at(l3["_svc"], ["twyford"], l3["dt"])
+                        if l3_transit is None:
+                            l3_transit = 25
+                        total = (l1_transit or 0) + (l2_transit or 0) + (l3_transit or 0)
                         leg3_opts.append({
                             "time": l3["time"],
                             "destination": l3["destination"],
                             "status": l3["status"],
                             "delay_minutes": l3["delay_minutes"],
                             "platform": l3["platform"],
+                            "operator": l3["operator"],
+                            "operator_code": l3["operator_code"],
+                            "transit_mins": l3_transit,
+                            "total_transit_mins": total,
                         })
                         if len(leg3_opts) >= MAX_LEG3:
                             break
@@ -189,11 +241,21 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                         "status": l2["status"],
                         "delay_minutes": l2["delay_minutes"],
                         "platform": l2["platform"],
+                        "operator": l2["operator"],
+                        "operator_code": l2["operator_code"],
                         "wait_mins": wait2,
+                        "transit_mins": l2_transit,
                         "leg3": leg3_opts,
                     })
                     if len(leg2_opts) >= MAX_LEG2:
                         break
+
+                # Best-case total in-transit time (first catchable l2 + its first l3)
+                total_transit = None
+                if leg2_opts and leg2_opts[0]["leg3"]:
+                    total_transit = leg2_opts[0]["leg3"][0]["total_transit_mins"]
+                elif leg2_opts:
+                    total_transit = (l1_transit or 0) + (leg2_opts[0]["transit_mins"] or 0)
 
                 trains.append({
                     "time": l1["time"],
@@ -201,6 +263,10 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                     "status": l1["status"],
                     "delay_minutes": l1["delay_minutes"],
                     "platform": l1["platform"],
+                    "operator": l1["operator"],
+                    "operator_code": l1["operator_code"],
+                    "transit_mins": l1_transit,
+                    "total_transit_mins": total_transit,
                     "leg2": leg2_opts,
                 })
 

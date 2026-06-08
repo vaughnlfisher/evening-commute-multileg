@@ -1,8 +1,22 @@
-// Evening Commute Multileg Card v1.0.0
+// Evening Commute Multileg Card v1.1.0
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.0.0';
+const VER = '1.1.0';
+
+function carrierLabel(opCode, operator) {
+  if (!opCode && !operator) return '';
+  const c = (opCode || '').toUpperCase();
+  if (c === 'XR' || (operator || '').toLowerCase().includes('elizabeth')) return 'Elizabeth line';
+  if (c === 'GW' || (operator || '').toLowerCase().includes('great western')) return 'GWR';
+  return operator || c;
+}
+function carrierColor(opCode, operator) {
+  const c = (opCode || '').toUpperCase();
+  if (c === 'XR' || (operator || '').toLowerCase().includes('elizabeth')) return '#9364CC';
+  if (c === 'GW' || (operator || '').toLowerCase().includes('great western')) return '#0A493E';
+  return '#666';
+}
 
 function statusColor(status, delay) {
   if (!status) return '#9e9e9e';
@@ -25,6 +39,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._config = {};
     this._hass = null;
+    this._collapsed = {};  // train index -> bool
   }
   static getStubConfig() {
     return { entity: 'sensor.evening_commute_summary', title: 'Evening Commute' };
@@ -56,6 +71,12 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .train-block{border-bottom:2px solid var(--divider-color,rgba(0,0,0,.12))}
       .train-block:last-of-type{border-bottom:none}
       .leg-bar{display:flex;align-items:center;gap:6px;padding:3px 16px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--secondary-text-color);background:var(--secondary-background-color,#f5f5f5)}
+      .leg1-toggle{cursor:pointer;user-select:none}
+      .leg1-toggle:hover{background:var(--secondary-background-color,rgba(0,0,0,.06))}
+      .total-time{margin-left:auto;font-size:.95em;font-weight:700;color:var(--primary-text-color);text-transform:none;letter-spacing:0}
+      .caret{font-size:11px;transition:transform .2s;margin-left:6px}
+      .caret.open{transform:rotate(180deg)}
+      .carrier{border-radius:4px;padding:1px 6px;font-size:.92em;font-weight:700;color:#fff}
       .leg-pill{border-radius:10px;padding:1px 7px;font-size:9px;font-weight:800;color:#fff}
       .p1{background:#E1251B}   /* Thameslink magenta-red */
       .p2{background:#9364CC}   /* Elizabeth line purple */
@@ -79,16 +100,23 @@ class EveningCommuteMultilegCard extends HTMLElement {
     `;
   }
 
-  _row(item, cls, platLabel) {
+  _row(item, cls, opts) {
+    opts = opts || {};
     const color = statusColor(item.status, item.delay_minutes);
     const lbl = statusLabel(item.status, item.delay_minutes);
     const plat = item.platform ? `<span class="plat">Plat ${item.platform}</span>` : '';
     const waitTxt = (item.wait_mins !== null && item.wait_mins !== undefined)
       ? `${item.wait_mins}m wait` : '';
+    let carrierBadge = '';
+    if (opts.carrier) {
+      const cl = carrierLabel(item.operator_code, item.operator);
+      const cc = carrierColor(item.operator_code, item.operator);
+      if (cl) carrierBadge = `<span class="carrier" style="background:${cc}">${cl}</span>`;
+    }
     return `<div class="row ${cls}">
       <div class="top">
         <span class="time" style="color:${color}">${item.time}</span>
-        <div class="meta">${plat}${waitTxt ? `<span>${waitTxt}</span>` : ''}</div>
+        <div class="meta">${carrierBadge}${plat}${waitTxt ? `<span>${waitTxt}</span>` : ''}</div>
         <span class="status" style="color:${color}">${lbl}</span>
       </div>
       <div class="sub">Towards ${item.destination}</div>
@@ -114,8 +142,17 @@ class EveningCommuteMultilegCard extends HTMLElement {
     if (!trains.length) {
       blocks = '<div class="no-trains">No services found</div>';
     } else {
-      blocks = trains.map(t => {
-        const leg1 = `<div class="leg-bar"><span class="leg-pill p1">LEG 1</span>City Thameslink \u2192 Farringdon \u00b7 Thameslink</div>${this._row(t, 'row')}`;
+      blocks = trains.map((t, idx) => {
+        const collapsed = !!this._collapsed[idx];
+        const totalTxt = (t.total_transit_mins !== null && t.total_transit_mins !== undefined)
+          ? `<span class="total-time">\u23f1 ${t.total_transit_mins} min total</span>` : '';
+        const caret = `<span class="caret${collapsed ? '' : ' open'}">\u25bc</span>`;
+        const leg1bar = `<div class="leg-bar leg1-toggle" data-idx="${idx}"><span class="leg-pill p1">LEG 1</span>City Thameslink \u2192 Farringdon \u00b7 Thameslink ${totalTxt}${caret}</div>`;
+        const leg1 = leg1bar + this._row(t, 'row');
+
+        if (collapsed) {
+          return `<div class="train-block">${leg1}</div>`;
+        }
 
         const leg2list = Array.isArray(t.leg2) ? t.leg2 : [];
         let leg2html;
@@ -133,7 +170,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
                 } else {
                   leg3html = `<div class="interchange"><span class="line"></span>\ud83d\udeb6 ${pInt}m interchange at Paddington<span class="line"></span></div>`
                     + `<div class="leg-bar"><span class="leg-pill p3">LEG 3</span>Paddington \u2192 Twyford \u00b7 GWR / Elizabeth</div>`
-                    + `<div class="l3-wrap">` + leg3list.map(l3 => this._row(l3, 'l3-row')).join('') + `</div>`;
+                    + `<div class="l3-wrap">` + leg3list.map(l3 => this._row(l3, 'l3-row', {carrier: true})).join('') + `</div>`;
                 }
                 return l2row + leg3html;
               }).join('') + `</div>`;
@@ -147,6 +184,13 @@ class EveningCommuteMultilegCard extends HTMLElement {
       : '';
 
     this.shadowRoot.innerHTML = `<style>${this._styles()}</style><ha-card>${hdr}${blocks}${footer}</ha-card>`;
+    this.shadowRoot.querySelectorAll('.leg1-toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        const i = parseInt(el.getAttribute('data-idx'), 10);
+        this._collapsed[i] = !this._collapsed[i];
+        this._render();
+      });
+    });
   }
 }
 
