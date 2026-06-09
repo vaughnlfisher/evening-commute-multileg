@@ -58,9 +58,11 @@ HSP_USERNAME = "YOUR_NRE_USERNAME"
 HSP_PASSWORD = "YOUR_NRE_PASSWORD"
 # Per-leg HSP routes for the evening return (16:00-20:00 weekday window)
 HSP_LEGS = [
-    {"key": "leg1", "from": "CTK", "to": "ZFD", "label": "City Thameslink \u2192 Farringdon"},
-    {"key": "leg2", "from": "ZFD", "to": "PAD", "label": "Farringdon \u2192 Paddington"},
+    {"key": "leg1", "from": "CTK", "to": "EPH", "label": "City Thameslink \u2192 Farringdon (Thameslink)"},
     {"key": "leg3", "from": "PAD", "to": "TWY", "label": "Paddington \u2192 Twyford"},
 ]
+# Leg 2 (ZFD->PAD) is Elizabeth Line (TfL) — not covered by NR HSP.
+# We proxy reliability from the morning commute's Thameslink sensor instead.
+LEG2_HISTORY_PROXY_ENTITY = "sensor.morning_commute_leg_2_historical_reliability"
 HSP_FROM_TIME = "1600"
 HSP_TO_TIME   = "2000"

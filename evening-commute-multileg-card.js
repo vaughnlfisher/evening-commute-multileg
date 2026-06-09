@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.2.2
+// Evening Commute Multileg Card v1.3.0
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.2.2';
+const VER = '1.3.0';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -162,6 +162,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
       const bg = pctColor(d.on_time_pct);
       return `<div class="hist-day" style="background:${bg}20;border:1px solid ${bg}60"><div class="hist-day-lbl" style="color:${bg}">${dayAbbr(d.date)}</div><div class="hist-day-pct" style="color:${bg}">${d.on_time_pct.toFixed(0)}%</div></div>`;
     }).join('');
+    const proxyNote = h.proxy ? `<div style="font-size:.68em;color:var(--secondary-text-color);font-style:italic;margin-top:4px">\u2139\ufe0f Via Thameslink reliability proxy (Elizabeth line not on NR HSP)</div>` : '';
     return `<div class="hist-section">
       <div class="hist-title" style="color:${color}">${h.label || ''}</div>
       <div class="hist-stats">
@@ -170,6 +171,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
         <div class="hist-stat"><div class="hist-stat-val" style="color:${pctColor(h.on_time_pct_30day)}">${fmt(h.on_time_pct_30day)}</div><div class="hist-stat-lbl">30-day</div></div>
       </div>
       ${daysHtml ? `<div class="hist-days">${daysHtml}</div>` : ''}
+      ${proxyNote}
     </div>`;
   }
 

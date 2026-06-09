@@ -25,6 +25,7 @@ from .const import (
     HUXLEY_ROWS,
     NORTHBOUND_TERMINI, TWYFORD_TERMINI,
     HSP_URL, HSP_USERNAME, HSP_PASSWORD, HSP_LEGS, HSP_FROM_TIME, HSP_TO_TIME,
+    LEG2_HISTORY_PROXY_ENTITY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -224,6 +225,25 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                 parsed["label"] = leg["label"]
                 out[leg["key"]] = parsed
                 _LOGGER.warning("HSP %s: 7-day %.1f%%", leg["key"], parsed.get("on_time_pct_7day") or 0)
+
+        # Inject leg2 proxy from morning commute sensor (Elizabeth Line — not on NR HSP)
+        try:
+            s = self.hass.states.get(LEG2_HISTORY_PROXY_ENTITY)
+            if s and s.state not in (None, "unknown", "unavailable", ""):
+                attrs = s.attributes
+                out["leg2"] = {
+                    "label": "Farringdon → Paddington (Elizabeth line)",
+                    "on_time_pct_today": attrs.get("on_time_pct_today"),
+                    "on_time_pct_7day": attrs.get("on_time_pct_7day"),
+                    "on_time_pct_30day": attrs.get("on_time_pct_30day"),
+                    "daily_breakdown": attrs.get("daily_breakdown", []),
+                    "best_day": attrs.get("best_day"),
+                    "worst_day": attrs.get("worst_day"),
+                    "proxy": True,
+                }
+                _LOGGER.warning("HSP leg2 proxy: 7-day %.1f%%", attrs.get("on_time_pct_7day") or 0)
+        except Exception as err:
+            _LOGGER.warning("HSP leg2 proxy error: %s", err)
 
         if out:
             self._history = out
