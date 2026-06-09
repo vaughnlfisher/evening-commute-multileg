@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.2.0
+// Evening Commute Multileg Card v1.2.1
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.2.0';
+const VER = '1.2.1';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -90,8 +90,8 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .caret{font-size:11px;transition:transform .2s;margin-left:6px}
       .caret.open{transform:rotate(180deg)}
       .carrier{border-radius:4px;padding:1px 6px;font-size:.92em;font-weight:700;color:#fff}
-      .leg-pill{border-radius:10px;padding:1px 7px;font-size:9px;font-weight:800;color:#fff}
-      .p1{background:#E1251B}   /* Thameslink magenta-red */
+      .leg-pill{border-radius:10px;padding:1px 7px;font-size:9px;font-weight:800;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+      .p1{background:#B30D24}   /* Thameslink red (deepened for contrast) */
       .p2{background:#9364CC}   /* Elizabeth line purple */
       .p3{background:#0A493E}   /* GWR dark green */
       .row{padding:8px 16px}
@@ -174,7 +174,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
   }
 
   _histPanel(history) {
-    const l1 = this._histSection(history.leg1, 'p1', '#E1251B');
+    const l1 = this._histSection(history.leg1, 'p1', '#B30D24');
     const l2 = this._histSection(history.leg2, 'p2', '#9364CC');
     const l3 = this._histSection(history.leg3, 'p3', '#0A493E');
     return `${l1}<hr class="hist-divider">${l2}<hr class="hist-divider">${l3}`;
