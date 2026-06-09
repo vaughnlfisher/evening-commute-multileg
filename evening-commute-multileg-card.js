@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.3.1
+// Evening Commute Multileg Card v1.3.2
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.3.1';
+const VER = '1.3.2';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -109,22 +109,22 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .none{padding:6px 16px;font-size:.76em;color:var(--secondary-text-color);font-style:italic}
       .footer{padding:5px 16px;font-size:.74em;color:var(--secondary-text-color);border-top:1px solid var(--divider-color,rgba(0,0,0,.08));display:flex;justify-content:space-between}
       .no-trains{padding:18px 16px;text-align:center;color:var(--secondary-text-color)}
-      .hist-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;border-top:1px solid var(--divider-color,rgba(0,0,0,.08));background:var(--secondary-background-color,#f5f5f5);user-select:none}
+      .hist-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;border-top:1px solid rgba(0,0,0,.12);background:#fff;user-select:none}
       .hist-toggle:hover{background:var(--secondary-background-color,rgba(0,0,0,.06))}
-      .hist-toggle-lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--secondary-text-color)}
-      .hist-toggle-icon{font-size:14px;color:var(--secondary-text-color);transition:transform .2s}
+      .hist-toggle-lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#444}
+      .hist-toggle-icon{font-size:14px;color:#444;transition:transform .2s}
       .hist-toggle-icon.open{transform:rotate(180deg)}
-      .hist-section{padding:10px 16px 12px;border-top:1px solid var(--divider-color,rgba(0,0,0,.06))}
+      .hist-section{padding:10px 16px 12px;border-top:1px solid rgba(0,0,0,.08);background:#fff}
       .hist-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
       .hist-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px}
-      .hist-stat{text-align:center;background:rgba(128,128,128,.12);border-radius:6px;padding:6px 4px;border:1px solid rgba(128,128,128,.15)}
+      .hist-stat{text-align:center;background:#f5f5f5;border-radius:6px;padding:6px 4px;border:1px solid #e0e0e0}
       .hist-stat-val{font-size:1.1em;font-weight:700}
-      .hist-stat-lbl{font-size:.7em;color:var(--secondary-text-color);margin-top:1px}
+      .hist-stat-lbl{font-size:.7em;color:#666;margin-top:1px}
       .hist-days{display:flex;gap:3px;margin-bottom:4px}
       .hist-day{flex:1;text-align:center;border-radius:4px;padding:3px 2px;min-width:0}
-      .hist-day-lbl{font-size:.62em;font-weight:600}
+      .hist-day-lbl{font-size:.62em;font-weight:600;color:#333}
       .hist-day-pct{font-size:.66em;font-weight:700;margin-top:1px}
-      .hist-divider{border:none;border-top:1px solid var(--divider-color,rgba(0,0,0,.08));margin:9px 0 7px}
+      .hist-divider{border:none;border-top:1px solid #e0e0e0;margin:9px 0 7px}
     `;
   }
 
