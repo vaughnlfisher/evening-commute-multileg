@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.3.0
+// Evening Commute Multileg Card v1.3.1
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.3.0';
+const VER = '1.3.1';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -18,12 +18,11 @@ function carrierColor(opCode, operator) {
   return '#666';
 }
 function pctColor(p) {
-  if (p === null || p === undefined) return '#555';
-  if (p >= 98) return '#2e7d32';
-  if (p >= 95) return '#4caf50';
-  if (p >= 90) return '#ff9800';
-  if (p >= 80) return '#f44336';
-  return '#b71c1c';
+  if (p === null || p === undefined) return 'var(--secondary-text-color)';
+  if (p >= 90) return '#43a047';   /* good — muted green readable on dark+light */
+  if (p >= 80) return '#fb8c00';   /* ok   — amber */
+  if (p >= 70) return '#e53935';   /* poor — red */
+  return '#b71c1c';                /* bad  — deep red */
 }
 function dayAbbr(dateStr) {
   try { return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short' }); }
@@ -118,7 +117,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .hist-section{padding:10px 16px 12px;border-top:1px solid var(--divider-color,rgba(0,0,0,.06))}
       .hist-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
       .hist-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px}
-      .hist-stat{text-align:center;background:var(--secondary-background-color,rgba(0,0,0,.04));border-radius:6px;padding:6px 4px}
+      .hist-stat{text-align:center;background:rgba(128,128,128,.12);border-radius:6px;padding:6px 4px;border:1px solid rgba(128,128,128,.15)}
       .hist-stat-val{font-size:1.1em;font-weight:700}
       .hist-stat-lbl{font-size:.7em;color:var(--secondary-text-color);margin-top:1px}
       .hist-days{display:flex;gap:3px;margin-bottom:4px}
