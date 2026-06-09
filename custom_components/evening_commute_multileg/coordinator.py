@@ -168,6 +168,8 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                 self._history = result
                 if self.data:
                     self.data["history"] = result
+                    if isinstance(self.data.get("summary"), dict):
+                        self.data["summary"]["history"] = result
                     self.async_set_updated_data(self.data)
                 _LOGGER.warning("HSP evening: fetched %d legs", len(result))
         except Exception as err:
@@ -420,6 +422,7 @@ class EveningCommuteCoordinator(DataUpdateCoordinator):
                     "paddington_interchange_mins": PADDINGTON_INTERCHANGE_MINS,
                     "trains": trains,
                     "last_updated": now.isoformat(),
+                    "history": self._history,
                 },
                 "history": self._history,
             }

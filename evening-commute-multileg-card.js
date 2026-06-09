@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.2.1
+// Evening Commute Multileg Card v1.2.2
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.2.1';
+const VER = '1.2.2';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -199,6 +199,10 @@ class EveningCommuteMultilegCard extends HTMLElement {
     if (!trains.length) {
       blocks = '<div class="no-trains">No services found</div>';
     } else {
+      if (!this._collapsedInit) {
+        trains.forEach((_, i) => { this._collapsed[i] = (i !== 0); });
+        this._collapsedInit = true;
+      }
       blocks = trains.map((t, idx) => {
         const collapsed = !!this._collapsed[idx];
         const totalTxt = (t.total_transit_mins !== null && t.total_transit_mins !== undefined)
@@ -237,10 +241,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
     }
 
     const history = (s && s.history) ? s.history : null;
-    const hasHist = history && (history.leg1 || history.leg2 || history.leg3);
-    const histHtml = hasHist
-      ? `<div class="hist-toggle" id="hist-toggle"><span class="hist-toggle-lbl">\ud83d\udcca Reliability History</span><span class="hist-toggle-icon${this._histOpen ? ' open' : ''}">\u25bc</span></div>${this._histOpen ? this._histPanel(history) : ''}`
-      : '';
+    const histHtml = `<div class="hist-toggle" id="hist-toggle"><span class="hist-toggle-lbl">\ud83d\udcca Reliability History</span><span class="hist-toggle-icon${this._histOpen ? ' open' : ''}">\u25bc</span></div>${this._histOpen ? (history ? this._histPanel(history) : '<div class="hist-section"><div style="font-size:.76em;color:var(--secondary-text-color);font-style:italic">Reliability data loading… (updates ~30s after restart)</div></div>') : ''}`;
 
     const footer = cfg.show_last_updated && lastUpdated
       ? `<div class="footer"><span>Last updated: ${lastUpdated}</span><span>\ud83c\udf19</span></div>`
