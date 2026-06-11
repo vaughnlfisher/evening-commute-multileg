@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.3.4
+// Evening Commute Multileg Card v1.3.5
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.3.4';
+const VER = '1.3.5';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -10,6 +10,10 @@ function carrierLabel(opCode, operator) {
   if (c === 'XR' || (operator || '').toLowerCase().includes('elizabeth')) return 'Elizabeth line';
   if (c === 'GW' || (operator || '').toLowerCase().includes('great western')) return 'GWR';
   return operator || c;
+}
+function hexToRgba(hex, a) {
+  const h = hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
 }
 function carrierColor(opCode, operator) {
   const c = (opCode || '').toUpperCase();
@@ -102,10 +106,10 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .sub{font-size:.78em;color:var(--secondary-text-color);margin-top:2px}
       .interchange{display:flex;align-items:center;gap:8px;padding:4px 16px;font-size:.72em;color:var(--secondary-text-color);font-style:italic}
       .interchange .line{flex:1;border-top:1px dashed var(--divider-color,rgba(0,0,0,.2))}
-      .l2-wrap{margin-left:14px;border-left:3px solid #9364CC;padding-left:0;background:rgba(147,100,204,0.08)}
-      .l3-wrap{margin-left:14px;border-left:3px solid #0A493E;padding-left:0;background:rgba(10,73,62,0.08)}
-      .l2-row{padding:6px 16px;background:rgba(147,100,204,0.08);border-left:none}
-      .l3-row{padding:5px 16px;font-size:.95em;background:rgba(10,73,62,0.08);border-left:none}
+      .l2-wrap{margin-left:14px;border-left:3px solid #9364CC;padding-left:0;}
+      .l3-wrap{margin-left:14px;border-left:3px solid #0A493E;padding-left:0;}
+      .l2-row{padding:6px 16px;}
+      .l3-row{padding:5px 16px;font-size:.95em;}
       .none{padding:6px 16px;font-size:.76em;color:var(--secondary-text-color);font-style:italic}
       .footer{padding:5px 16px;font-size:.74em;color:var(--secondary-text-color);border-top:1px solid var(--divider-color,rgba(0,0,0,.08));display:flex;justify-content:space-between}
       .no-trains{padding:18px 16px;text-align:center;color:var(--secondary-text-color)}
@@ -141,7 +145,8 @@ class EveningCommuteMultilegCard extends HTMLElement {
       const cc = carrierColor(item.operator_code, item.operator);
       if (cl) carrierBadge = `<span class="carrier" style="background:${cc}">${cl}</span>`;
     }
-    return `<div class="row ${cls}">
+    const rowBg = carrierColor(item.operator_code, item.operator);
+    return `<div class="row ${cls}" style="background:${hexToRgba(rowBg, 0.08)};border-left:3px solid ${hexToRgba(rowBg, 0.3)}">
       <div class="top">
         <span class="time" style="color:${color}">${item.time}</span>
         <div class="meta">${carrierBadge}${plat}${waitTxt ? `<span>${waitTxt}</span>` : ''}</div>
@@ -231,7 +236,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
                   leg3html = `<div class="interchange"><span class="line"></span>\ud83d\udeb6 ${pInt}m at Paddington<span class="line"></span></div><div class="l3-wrap"><div class="none">No onward Twyford service yet</div></div>`;
                 } else {
                   leg3html = `<div class="interchange"><span class="line"></span>\ud83d\udeb6 ${pInt}m interchange at Paddington<span class="line"></span></div>`
-                    + `<div class="leg-bar"><span class="leg-pill p3">LEG 3</span>Paddington \u2192 Twyford \u00b7 GWR / Elizabeth</div>`
+                    + `<div class="leg-bar"><span class="leg-pill p3">LEG 3</span>Paddington \u2192 Twyford</div>`
                     + `<div class="l3-wrap">` + leg3list.map(l3 => this._row(l3, 'l3-row', {carrier: true})).join('') + `</div>`;
                 }
                 return l2row + leg3html;
