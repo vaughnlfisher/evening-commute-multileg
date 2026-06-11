@@ -1,8 +1,8 @@
-// Evening Commute Multileg Card v1.3.3
+// Evening Commute Multileg Card v1.3.4
 // 3-leg return: CTK->Farringdon (Thameslink) -> Farringdon->Paddington (Elizabeth) -> Paddington->Twyford (GWR/Lizzie)
 // Anchored nesting: each leg shows connections catchable after the previous leg arrives.
 
-const VER = '1.3.3';
+const VER = '1.3.4';
 
 function carrierLabel(opCode, operator) {
   if (!opCode && !operator) return '';
@@ -93,7 +93,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .p1{background:#B30D24}   /* Thameslink red (deepened for contrast) */
       .p2{background:#9364CC}   /* Elizabeth line purple */
       .p3{background:#0A493E}   /* GWR dark green */
-      .row{padding:8px 16px}
+      .row{padding:8px 16px;background:rgba(179,13,36,0.08);border-left:3px solid #B30D24}
       .row .top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
       .time{font-size:1.2em;font-weight:700;color:var(--primary-text-color);flex-shrink:0}
       .meta{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;font-size:.8em;color:var(--secondary-text-color)}
@@ -102,10 +102,10 @@ class EveningCommuteMultilegCard extends HTMLElement {
       .sub{font-size:.78em;color:var(--secondary-text-color);margin-top:2px}
       .interchange{display:flex;align-items:center;gap:8px;padding:4px 16px;font-size:.72em;color:var(--secondary-text-color);font-style:italic}
       .interchange .line{flex:1;border-top:1px dashed var(--divider-color,rgba(0,0,0,.2))}
-      .l2-wrap{margin-left:14px;border-left:3px solid #9364CC;padding-left:0}
-      .l3-wrap{margin-left:14px;border-left:3px solid #0A493E;padding-left:0}
-      .l2-row{padding:6px 16px}
-      .l3-row{padding:5px 16px;font-size:.95em}
+      .l2-wrap{margin-left:14px;border-left:3px solid #9364CC;padding-left:0;background:rgba(147,100,204,0.08)}
+      .l3-wrap{margin-left:14px;border-left:3px solid #0A493E;padding-left:0;background:rgba(10,73,62,0.08)}
+      .l2-row{padding:6px 16px;background:rgba(147,100,204,0.08);border-left:none}
+      .l3-row{padding:5px 16px;font-size:.95em;background:rgba(10,73,62,0.08);border-left:none}
       .none{padding:6px 16px;font-size:.76em;color:var(--secondary-text-color);font-style:italic}
       .footer{padding:5px 16px;font-size:.74em;color:var(--secondary-text-color);border-top:1px solid var(--divider-color,rgba(0,0,0,.08));display:flex;justify-content:space-between}
       .no-trains{padding:18px 16px;text-align:center;color:var(--secondary-text-color)}
