@@ -149,7 +149,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
       if (cl) carrierBadge = `<span class="carrier" style="background:${cc}">${cl}</span>`;
     }
     const rowBg = carrierColor(item.operator_code, item.operator);
-    return `<div class="row ${cls}" style="background:${hexToSolid(rowBg, 0.15)};border-left:3px solid ${hexToSolid(rowBg, 0.4)}">
+    return `<div class="row ${cls}" style="background:${hexToSolid(rowBg, 0.25)};border-left:3px solid ${hexToSolid(rowBg, 0.5)}">
       <div class="top">
         <span class="time" style="color:${color}">${item.time}</span>
         <div class="meta">${carrierBadge}${plat}${waitTxt ? `<span>${waitTxt}</span>` : ''}</div>
