@@ -14,7 +14,7 @@ function carrierLabel(opCode, operator) {
 function hexToSolid(hex, mix) {
   const h = hex.replace('#','');
   const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-  const br=30, bg=30, bb=30; // dark card base ~#1e1e1e
+  const br=40, bg=40, bb=40;
   const mr = Math.round(br + (r-br)*mix), mg = Math.round(bg + (g-bg)*mix), mb = Math.round(bb + (b-bb)*mix);
   return `rgb(${mr},${mg},${mb})`;
 }
@@ -158,7 +158,7 @@ class EveningCommuteMultilegCard extends HTMLElement {
       if (cl) carrierBadge = `<span class="carrier" style="background:${cc}">${cl}</span>`;
     }
     const rowBg = carrierColor(item.operator_code, item.operator);
-    return `<div class="row ${cls}" style="background:${hexToSolid(rowBg, 0.25)};border-left:3px solid ${hexToSolid(rowBg, 0.5)}">
+    return `<div class="row ${cls}" style="background:${hexToSolid(rowBg, 0.35)};border-left:3px solid ${hexToSolid(rowBg, 0.6)}">
       <div class="top">
         <span class="time" style="color:${color}">${item.time}</span>
         <div class="meta">${carrierBadge}${plat}${waitTxt ? `<span>${waitTxt}</span>` : ''}</div>
